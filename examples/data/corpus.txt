@@ -1,0 +1,20 @@
+Language models read text as sequences of tokens, and the tokenizer decides
+what those tokens are. A byte pair encoding tokenizer starts from the 256
+byte values and repeatedly merges the most frequent adjacent pair into a new
+token. Frequent words and fragments become single tokens, while rare text
+falls back to shorter pieces. The same merges must be applied in rank order
+at encoding time, or the token stream drifts from the one the model saw in
+training.
+
+Compression is the practical payoff: a well trained tokenizer represents a
+corpus with fewer tokens than raw bytes, which shortens sequences and saves
+attention budget. But merging is a trade. A vocabulary that is too small
+leaves common words split into pieces; one that is too large spends rare
+merges on noise and slows every embedding lookup. Measuring bytes per token
+on held out text keeps that trade honest.
+
+Deterministic training matters for reproducibility. If two runs of the same
+pipeline produce different merges, downstream token ids change silently and
+cached artifacts become invalid. TokenForge counts pairs exactly, breaks
+ties on the pair itself, and stores merges as plain JSON so a tokenizer can
+be diffed, reviewed and rebuilt byte for byte.
