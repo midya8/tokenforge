@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
 
 jobs:
@@ -18,5 +17,32 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
+      - name: Regenerate complete indexed witnesses
+        run: python scripts/build_indexed.py && git diff --exit-code examples/indexed.json examples/indexed-corpus.json docs/indexed-data.js
       - name: Run offline demo
         run: bash examples/demo.sh
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Independent JavaScript and actual Chrome
+        run: node --test --test-concurrency=1 tests/test_indexed.cjs tests/test_indexed_browser.cjs
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+  installed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Reproduce installed distribution outside checkout
+        run: bash scripts/wheel_smoke.sh
