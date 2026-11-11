@@ -15,9 +15,16 @@ def _read_text(path):
 
 def _cmd_train(args):
     text = _read_text(args.input)
-    tokenizer = BPETokenizer.train(
-        text, vocab_size=args.vocab_size, min_pair_count=args.min_pair_count
-    )
+    if args.trainer == 'indexed':
+        from .incremental import train_incremental
+        tokenizer, report = train_incremental(text, args.vocab_size, args.min_pair_count, trace=bool(args.training_report))
+        if args.training_report:
+            with open(args.training_report, 'w', encoding='utf-8') as fh:
+                json.dump(report, fh, indent=2); fh.write('\n')
+    else:
+        if args.training_report:
+            raise ValueError('--training-report requires --trainer indexed')
+        tokenizer = BPETokenizer.train(text, vocab_size=args.vocab_size, min_pair_count=args.min_pair_count)
     tokenizer.save(args.output)
     print(
         "trained %d merges (vocab size %d) -> %s"
@@ -78,6 +85,8 @@ def build_parser():
     p.add_argument("--vocab-size", type=int, default=512)
     p.add_argument("--min-pair-count", type=int, default=2)
     p.add_argument("--output", required=True, help="output vocab JSON path")
+    p.add_argument('--trainer', choices=['scan','indexed'], default='scan', help='scan remains the default; indexed updates local occurrences')
+    p.add_argument('--training-report', help='indexed trace and structural work, not a timing report')
     p.set_defaults(func=_cmd_train)
 
     p = sub.add_parser("encode", help="encode text to token ids")
